@@ -1,0 +1,128 @@
+<html>
+<head>
+<script>
+
+class Game{
+	constructor(sprites){
+		this.sprites = sprites;
+		this.left = 148;
+		this.top = 95;
+		this.horizontalSpacing = 55;
+		this.verticalSpacing = 48;
+	}
+	
+	mousedown(x, y, button){
+		this.clickedFlower = this.getClickedFlower(x, y, 24);
+	}
+	
+	update(time){
+	}
+	
+	draw(ctx){
+		ctx.drawImage(this.sprites[9], 0, 0);		
+		if (this.clickedFlower){
+			this.drawGridSkippingRing(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, this.clickedFlower.c, this.clickedFlower.r, 1.0);		
+		}else{
+			this.drawGrid(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, 1.0);		
+		}
+		this.drawGrid(ctx, 455, 64, 29, 23, 0.5);
+	}
+	
+	drawGrid(ctx, x, y, dx, dy, scale){
+		for (let r = 0; r < 5; ++r)
+			for (let c = 0; c < 5 - Math.abs(r-2); ++c)
+				this.drawSprite(ctx, x + dx * c - (2-Math.abs(r-2)) * dx / 2, y + dy * r, 8, scale);
+	}
+	
+	isNeighbour(c, r, sc, sr){
+		return (r == sr - 1 && (c == sc + (sr < 3 ? -1 : 1)  || c == sc    ))
+			|| (r == sr     && (c == sc - 1                  || c == sc + 1)) 
+			|| (r == sr + 1 && (c == sc + (sr < 2 ? 1 : -1) || c == sc    ));
+	}
+	
+	drawGridSkippingRing(ctx, x, y, dx, dy, sc, sr, scale){
+		for (let r = 0; r < 5; ++r)
+			for (let c = 0; c < 5 - Math.abs(r-2); ++c)
+				if (!this.isNeighbour(c,r,sc,sr))
+					this.drawSprite(ctx, x + dx * c - (2-Math.abs(r-2)) * dx / 2, y + dy * r, 8, scale);
+		
+	}
+	
+	drawSprite(ctx, x, y, id, scale){
+		ctx.drawImage(this.sprites[id], x - this.sprites[id].width / 2, y - this.sprites[id].height / 2, this.sprites[id].width * scale, this.sprites[id].height * scale);
+	}
+	
+	getClickedFlower(x2, y2, radius){
+		for (let r = 0; r < 5; ++r){
+			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
+				let x1 = this.left + this.horizontalSpacing * c - (2-Math.abs(r-2)) * this.horizontalSpacing / 2;
+				let y1 = this.top + this.verticalSpacing * r;
+				
+				let distanceSquared = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)
+				
+				if (distanceSquared < radius * radius){
+					return {c: c, r: r};
+				}
+			}
+		}
+		return null;
+	}
+}
+
+function loadSprites(numSprites, onLoadCompletion, onLoadProgress){
+	var sprites = [];
+	var numLoaded = 0;
+	var numError = 0;
+	
+	for (var i=1; i <= numSprites; ++i){
+		var img = new Image();		
+		img.src = "sprites\\" + i + ".png";
+		img.onload = function () {						
+			numLoaded++;
+			if (numLoaded + numError == numSprites){
+				onLoadCompletion(numLoaded, numError);
+			}else if (onLoadProgress != null){		
+				onLoadProgress(numLoaded, numError);				
+			}
+		};
+		img.onerror = function () {						
+			numError++;
+			if (numLoaded + numError == numSprites){
+				onLoadCompletion();
+			}else if (onLoadProgress != null){
+				onLoadProgress(numLoaded, numError);
+			}
+		};
+		sprites.push(img);
+	}
+	return sprites;
+}
+
+function start(){	
+	var canvas = document.getElementById("MyCanvas");		
+	var ctx = canvas.getContext("2d");
+	
+	canvas.addEventListener('mousedown', function(evt){
+		var rect = canvas.getBoundingClientRect();
+		x = evt.clientX - rect.left;
+		y = evt.clientY - rect.top;
+		game.mousedown(x, y, evt.button);		
+	});
+	
+	canvas.addEventListener('contextmenu', function(ev) {
+		ev.preventDefault();    
+		return false;
+	}, false);
+		
+	setInterval((time)=>{game.update(time); game.draw(ctx);}, 16);
+}
+
+var sprites = loadSprites(12, start);
+var game = new Game(sprites);
+
+</script>
+</head>
+<body>
+<canvas id="MyCanvas" width="628" height="400" style="border:1px solid #000000; background-color:#008000;"></canvas>
+</body>
+</html>
