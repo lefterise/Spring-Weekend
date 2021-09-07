@@ -7,8 +7,9 @@ const State = {
 }
 
 class Game{
-	constructor(sprites){
+	constructor(sprites, audio){
 		this.sprites = sprites;
+		this.audio = audio;
 		this.left = 148;
 		this.top = 95;
 		this.horizontalSpacing = 55;
@@ -40,6 +41,10 @@ class Game{
 			this.state = State.Animating;
 			this.directionIsLeft = button == 0;
 			this.animationStartTime = -1;
+			
+			this.audio.rotate.play();
+		} else {
+			this.audio.noRotate.play();
 		}
 	}
 	
@@ -165,6 +170,7 @@ class Game{
 	
 	checkForWin(){
 		if (this.arrangement.every((value, index) => value === this.goal[index])){
+			this.audio.win.play();
 			//todo: proceed to next arrangement
 		}
 	}
@@ -219,7 +225,12 @@ function start(){
 }
 
 var sprites = loadSprites(12, start);
-var game = new Game(sprites);
+var audio = {
+	rotate: new Audio('waves/Rotate.wav'),
+	noRotate: new Audio('waves/NoRotate.wav'),
+	win: new Audio('waves/NextLevel.wav')
+};
+var game = new Game(sprites, audio);
 
 </script>
 </head>
