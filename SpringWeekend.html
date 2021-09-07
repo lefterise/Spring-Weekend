@@ -138,7 +138,7 @@ class Game{
 		
 		for (let i = 0; i < 6; ++i){
 			let ox = cx + dx * Math.cos(angle + offsetAngle);
-			let oy = cy + (dx+0.5) * Math.sin(angle + offsetAngle); //todo: figure out why here i put dx+0.5 instead of dy
+			let oy = cy + (dy/Math.sin(2 * Math.PI * 60 / 360)) * Math.sin(angle + offsetAngle);
 			
 			this.drawSprite(ctx, ox, oy, this.arrangement[this.neighbours[index][i]], 1.0)
 			
