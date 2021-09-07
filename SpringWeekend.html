@@ -1,6 +1,10 @@
 <html>
 <head>
 <script>
+const State = {
+	Clickable: 0,
+	Animating: 1
+}
 
 class Game{
 	constructor(sprites){
@@ -9,43 +13,132 @@ class Game{
 		this.top = 95;
 		this.horizontalSpacing = 55;
 		this.verticalSpacing = 48;
+		
+		this.neighbours = [];
+		this.neighbours[ 4] = [ 0, 1, 5, 9, 8, 3];
+		this.neighbours[ 5] = [ 1, 2, 6,10, 9, 4];
+		this.neighbours[ 8] = [ 3, 4, 9,13,12, 7];
+		this.neighbours[ 9] = [ 4, 5,10,14,13, 8];
+		this.neighbours[10] = [ 5, 6,11,15,14, 9];
+		this.neighbours[13] = [ 8, 9,14,17,16,12];
+		this.neighbours[14] = [ 9,10,15,18,17,13];
+		
+		this.arrangement = [4,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8];
+		this.goal        = [8,8,8,8,8,8,8,8,8,4,8,8,8,8,8,8,8,8,8];
+		
+		this.state = State.Clickable;
+		this.animationTime = 200;
 	}
 	
 	mousedown(x, y, button){
+		if (this.state != State.Clickable)
+			return;
+			
 		this.clickedFlower = this.getClickedFlower(x, y, 24);
-	}
-	
-	update(time){
-	}
-	
-	draw(ctx){
-		ctx.drawImage(this.sprites[9], 0, 0);		
-		if (this.clickedFlower){
-			this.drawGridSkippingRing(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, this.clickedFlower.c, this.clickedFlower.r, 1.0);		
-		}else{
-			this.drawGrid(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, 1.0);		
-		}
-		this.drawGrid(ctx, 455, 64, 29, 23, 0.5);
-	}
-	
-	drawGrid(ctx, x, y, dx, dy, scale){
-		for (let r = 0; r < 5; ++r)
-			for (let c = 0; c < 5 - Math.abs(r-2); ++c)
-				this.drawSprite(ctx, x + dx * c - (2-Math.abs(r-2)) * dx / 2, y + dy * r, 8, scale);
-	}
-	
-	isNeighbour(c, r, sc, sr){
-		return (r == sr - 1 && (c == sc + (sr < 3 ? -1 : 1)  || c == sc    ))
-			|| (r == sr     && (c == sc - 1                  || c == sc + 1)) 
-			|| (r == sr + 1 && (c == sc + (sr < 2 ? 1 : -1) || c == sc    ));
-	}
-	
-	drawGridSkippingRing(ctx, x, y, dx, dy, sc, sr, scale){
-		for (let r = 0; r < 5; ++r)
-			for (let c = 0; c < 5 - Math.abs(r-2); ++c)
-				if (!this.isNeighbour(c,r,sc,sr))
-					this.drawSprite(ctx, x + dx * c - (2-Math.abs(r-2)) * dx / 2, y + dy * r, 8, scale);
 		
+		if (this.clickedFlower && this.isRotateable(this.clickedFlower.index)){
+			this.state = State.Animating;
+			this.directionIsLeft = button == 0;
+			this.animationStartTime = -1;
+		}
+	}
+	
+	rotateLeft(i){
+		let positionsToRotate = this.neighbours[i];
+		let first = this.arrangement[positionsToRotate[0]];
+		for (let j = 0; j < 6; ++j){
+			this.arrangement[positionsToRotate[j]] = this.arrangement[positionsToRotate[j+1]];
+		}
+		this.arrangement[positionsToRotate[5]] = first;
+	}
+	
+	rotateRight(i){
+		let positionsToRotate = this.neighbours[i];
+		let last = this.arrangement[positionsToRotate[5]];
+		for (let j = 5; j >= 0; --j){
+			this.arrangement[positionsToRotate[j]] = this.arrangement[positionsToRotate[j-1]];
+		}
+		this.arrangement[positionsToRotate[0]] = last;
+	}
+		
+	draw(ctx, time){
+		ctx.drawImage(this.sprites[9], 0, 0); //background
+		if (this.state == State.Animating){
+			if (this.animationStartTime == -1){
+				this.animationStartTime = time;
+			}
+			var animationTimeElapsed = time - this.animationStartTime;			
+			
+			if (animationTimeElapsed > this.animationTime){
+				animationTimeElapsed = this.animationTime;
+			}
+			let offsetAngle = 2 * Math.PI * 60 / 360 * animationTimeElapsed / this.animationTime * (this.directionIsLeft? -1:1);
+			
+			this.drawGridSkippingRing(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, this.clickedFlower.index, 1.0);
+			this.drawRing(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, this.clickedFlower.column, this.clickedFlower.row, this.clickedFlower.index, offsetAngle);
+			
+			if (animationTimeElapsed >= this.animationTime){
+				if (this.directionIsLeft)
+					this.rotateLeft(this.clickedFlower.index);
+				else
+					this.rotateRight(this.clickedFlower.index);
+					
+				this.state = State.Clickable;
+				
+				this.checkForWin();
+			}
+		}else{
+			this.drawGrid(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, 1.0, this.arrangement);		
+		}
+		this.drawGrid(ctx, 455, 64, 29, 23, 0.5, this.goal);//minimap
+	}
+	
+	isRotateable(i){
+		return this.neighbours[i] != null;
+	}
+	
+	isNeighbour(i,j){
+		return this.isRotateable(i) && this.neighbours[i].indexOf(j) != -1;
+	}
+	
+	
+	drawGrid(ctx, x, y, dx, dy, scale, data){
+		var i = 0;
+		for (let r = 0; r < 5; ++r){
+			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
+				this.drawSprite(ctx, x + dx * c - (2-Math.abs(r-2)) * dx / 2, y + dy * r, data[i], scale);
+				++i;
+			}			
+		}
+	}	
+	
+	drawGridSkippingRing(ctx, x, y, dx, dy, skipIndex, scale){
+		var i = 0;
+		for (let r = 0; r < 5; ++r){
+			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
+				if (!this.isNeighbour(skipIndex, i)){
+					this.drawSprite(ctx, x + dx * c - (2-Math.abs(r-2)) * dx / 2, y + dy * r, this.arrangement[i], scale);
+				}
+				++i;
+			}
+		}
+		
+	}
+	
+	drawRing(ctx, x, y, dx, dy, c, r, index, offsetAngle){
+		let angle = 2 * Math.PI * 240 / 360;
+				
+		let cx = x + dx * c - (2-Math.abs(r-2)) * dx / 2;
+		let cy = y + dy * r;
+		
+		for (let i = 0; i < 6; ++i){
+			let ox = cx + dx * Math.cos(angle + offsetAngle);
+			let oy = cy + (dx+0.5) * Math.sin(angle + offsetAngle); //todo: figure out why here i put dx+0.5 instead of dy
+			
+			this.drawSprite(ctx, ox, oy, this.arrangement[this.neighbours[index][i]], 1.0)
+			
+			angle += 2 * Math.PI * 60 / 360;
+		}
 	}
 	
 	drawSprite(ctx, x, y, id, scale){
@@ -53,6 +146,7 @@ class Game{
 	}
 	
 	getClickedFlower(x2, y2, radius){
+		var i = 0;
 		for (let r = 0; r < 5; ++r){
 			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
 				let x1 = this.left + this.horizontalSpacing * c - (2-Math.abs(r-2)) * this.horizontalSpacing / 2;
@@ -61,11 +155,18 @@ class Game{
 				let distanceSquared = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)
 				
 				if (distanceSquared < radius * radius){
-					return {c: c, r: r};
+					return {index: i, column: c, row: r};
 				}
+				++i;
 			}
 		}
 		return null;
+	}
+	
+	checkForWin(){
+		if (this.arrangement.every((value, index) => value === this.goal[index])){
+			//todo: proceed to next arrangement
+		}
 	}
 }
 
@@ -114,7 +215,7 @@ function start(){
 		return false;
 	}, false);
 		
-	setInterval((time)=>{game.update(time); game.draw(ctx);}, 16);
+	setInterval(()=>window.requestAnimationFrame((time)=>game.draw(ctx, time)), 16);
 }
 
 var sprites = loadSprites(12, start);
