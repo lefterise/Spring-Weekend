@@ -3,7 +3,8 @@
 <script>
 const State = {
 	Clickable: 0,
-	Animating: 1
+	Animating: 1,
+	Dragging:  2
 }
 
 function sin(degrees){
@@ -32,6 +33,9 @@ class Game{
 		this.neighbours[13] = [ 8, 9,14,17,16,12];
 		this.neighbours[14] = [ 9,10,15,18,17,13];
 		
+		this.indexToCol = [0,1,2,0,1,2,3,0,1,2,3,4,0,1,2,3,0,1,2];
+		this.indexToRow = [0,0,0,1,1,1,1,2,2,2,2,2,3,3,3,3,4,4,4];
+		
 		this.levels = [
 		{arrangement: [2,2,2,2,2,2,2,2,2,2,2,2,2,2,6,2,2,2,2],  goal: [2,2,2,2,2,2,2,2,2,6,2,2,2,2,2,2,2,2,2]},
 		{arrangement: [5,5,5,0,5,0,5,5,5,5,5,5,5,5,5,5,5,5,5],  goal: [5,5,5,5,5,5,5,5,0,5,0,5,5,5,5,5,5,5,5]},
@@ -49,6 +53,8 @@ class Game{
 		
 		this.state = State.Clickable;
 		this.animationTime = 200;
+		
+		this.chosenFlowerToRotateAround = -1;
 	}
 	
 	mousedown(x, y, button){
@@ -66,6 +72,105 @@ class Game{
 		} else {
 			this.audio.noRotate.play();
 		}
+	}
+	
+	touchstart(x, y){
+		this.mdx= x;
+		this.mdy= y;
+	}
+	
+	touchmove(x2, y2){
+		if (this.state == State.Animating)
+		return;
+		
+		if (this.chosenFlowerToRotateAround != -1){
+			let touchedFlowerStart = this.getClickedFlower(this.mdx, this.mdy, 24);					
+			
+			let c = this.indexToCol[this.chosenFlowerToRotateAround];
+			let r = this.indexToRow[this.chosenFlowerToRotateAround];
+			
+			let axisX = this.left + this.horizontalSpacing * c - (2-Math.abs(r-2)) * this.horizontalSpacing / 2;
+			let axisY = this.top + this.verticalSpacing * r;
+						
+			let angleNow = Math.atan2(y2 - axisY, x2-axisX);
+			
+			
+			this.deltaAngle = (angleNow - this.angleDown) * 180 / Math.PI;			
+			
+		
+			return;
+		}
+		
+		
+		let touchedFlowerStart = this.getClickedFlower(this.mdx, this.mdy, 24);
+		let touchedFlowerMove  = this.getClickedFlower(x2, y2, 24);
+			
+		if (touchedFlowerStart && touchedFlowerMove && touchedFlowerStart.index != touchedFlowerMove.index){
+			let matches = [];
+			
+			for (let coreFlower of [4,5,8,9,10,13,14]){
+				let a = this.neighbours[coreFlower].indexOf(touchedFlowerStart.index);
+				let b = this.neighbours[coreFlower].indexOf(touchedFlowerMove.index);
+				
+				if (a != -1 && b != -1){
+					matches.push({coreFlower: coreFlower, a: a, b:b});
+				}
+			}
+						
+			if (matches.length == 1 && this.chosenFlowerToRotateAround == -1){
+				let match = matches[0];
+		
+				this.clickedFlower =  {index: match.coreFlower, column: this.indexToCol[match.coreFlower], row: this.indexToRow[match.coreFlower]};
+				this.state = State.Dragging;
+				this.deltaAngle = 0;
+				this.directionIsLeft = (match.a > match.b) ^ (match.a == 5 && match.b == 0) ^ (match.a == 0 && match.b == 5); 
+				this.animationStartTime = -1;
+				
+				this.chosenFlowerToRotateAround = match.coreFlower;
+				
+				let c = this.indexToCol[this.chosenFlowerToRotateAround];
+				let r = this.indexToRow[this.chosenFlowerToRotateAround];
+				
+				let axisX = this.left + this.horizontalSpacing * c - (2-Math.abs(r-2)) * this.horizontalSpacing / 2;
+				let axisY = this.top + this.verticalSpacing * r;
+				
+				
+				//i somehow need to quickly transition betweeen this.angleDown and this.angleDownReal
+				
+				this.angleDown = Math.atan2(y2 - axisY, x2 - axisX);
+				this.angleDownReal = Math.atan2(this.mdy - axisY, this.mdx - axisX);  
+				
+				this.audio.rotate.play();
+				
+			}else{
+				this.audio.noRotate.play();
+			}
+		}
+	}
+	
+	touchend(x, y){	
+		this.state = State.Clickable;
+	
+		if (this.chosenFlowerToRotateAround == -1){
+			return;
+		}
+		
+				
+		let turns = Math.round(this.deltaAngle / 60);	
+		
+		while (turns > 0){
+			this.rotateRight(this.chosenFlowerToRotateAround);
+			--turns;
+		}
+		
+		while (turns < 0){
+			this.rotateLeft(this.chosenFlowerToRotateAround);
+			++turns;
+		}
+		
+		this.chosenFlowerToRotateAround = -1;
+		
+		this.checkForWin();
 	}
 	
 	rotateLeft(i){
@@ -112,6 +217,9 @@ class Game{
 				
 				this.checkForWin();
 			}
+		} else if (this.state == State.Dragging){
+			this.drawGridSkippingRing(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, this.clickedFlower.index, 1.0);
+			this.drawRing(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, this.clickedFlower.column, this.clickedFlower.row, this.clickedFlower.index, this.deltaAngle);
 		}else{
 			this.drawGrid(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, 1.0, this.arrangement);		
 		}
@@ -232,6 +340,64 @@ function start(){
 	var canvas = document.getElementById("MyCanvas");		
 	var ctx = canvas.getContext("2d");
 	
+	
+    canvas.addEventListener('touchstart', function(e){
+        var touchobj = e.changedTouches[0];
+		var rect = canvas.getBoundingClientRect();
+        
+		x = touchobj.clientX - rect.left;
+		y = touchobj.clientY - rect.top;
+		game.touchstart(x, y);
+		
+        e.preventDefault();
+    }, false);
+	
+	canvas.addEventListener('touchmove', function(e){
+        var touchobj = e.changedTouches[0];
+		var rect = canvas.getBoundingClientRect();
+        
+		x = touchobj.clientX - rect.left;
+		y = touchobj.clientY - rect.top;
+		game.touchmove(x, y);
+		
+        e.preventDefault();
+    }, false);
+	
+	canvas.addEventListener('touchend', function(e){
+        var touchobj = e.changedTouches[0];
+		var rect = canvas.getBoundingClientRect();
+        
+		x = touchobj.clientX - rect.left;
+		y = touchobj.clientY - rect.top;
+		game.touchend(x, y);
+		
+        e.preventDefault();
+    }, false);
+	
+	
+	/*canvas.addEventListener('mousedown', function(evt){
+		var rect = canvas.getBoundingClientRect();
+		x = evt.clientX - rect.left;
+		y = evt.clientY - rect.top;
+		game.touchstart(x, y);		
+	});
+	
+	canvas.addEventListener('mousemove', function(evt){
+		if (evt.buttons == 0) return;
+		var rect = canvas.getBoundingClientRect();
+		x = evt.clientX - rect.left;
+		y = evt.clientY - rect.top;
+		game.touchmove(x, y);		
+	});
+	
+	canvas.addEventListener('mouseup', function(evt){		
+		var rect = canvas.getBoundingClientRect();
+		x = evt.clientX - rect.left;
+		y = evt.clientY - rect.top;
+		game.touchend(x, y);		
+	});*/
+	
+	
 	canvas.addEventListener('mousedown', function(evt){
 		var rect = canvas.getBoundingClientRect();
 		x = evt.clientX - rect.left;
@@ -243,6 +409,7 @@ function start(){
 		ev.preventDefault();    
 		return false;
 	}, false);
+	
 		
 	setInterval(()=>window.requestAnimationFrame((time)=>game.draw(ctx, time)), 16);
 }
