@@ -22,11 +22,9 @@ class Game{
 	constructor(sprites, audio){
 		this.sprites = sprites;
 		this.audio = audio;
-		this.left = 148;
-		this.top = 95;
-		this.horizontalSpacing = 55;
-		this.verticalSpacing = 48;
-		
+		this.mapLoc     = {x: 148, y: 95, flowerSpacing: 55};	
+		this.minimapLoc = {x: 455, y: 64, flowerSpacing: 29};
+				
 		this.flowersAround = [];
 		this.flowersAround[ 4] = [ 0, 1, 5, 9, 8, 3];
 		this.flowersAround[ 5] = [ 1, 2, 6,10, 9, 4];
@@ -87,26 +85,30 @@ class Game{
 		}
 	}
 	
+	getFlowerAxisCoordinates(c, r){
+		let axisX = this.mapLoc.x + this.mapLoc.flowerSpacing * c - (2-Math.abs(r-2)) * this.mapLoc.flowerSpacing / 2;
+		let axisY = this.mapLoc.y + this.mapLoc.flowerSpacing * sin(60) * r;
+		return {x: axisX, y: axisY};
+	}
+	
 	touchmove(x2, y2){
-		if (this.state == State.Animating)
+		if (this.state == State.Animating || this.state == State.DragCatchUpAnimation)
 			return;
 		
 		if (this.chosenFlowerToRotateAround != -1){						
 			let c = this.indexToCol[this.chosenFlowerToRotateAround];
 			let r = this.indexToRow[this.chosenFlowerToRotateAround];
 			
-			let axisX = this.left + this.horizontalSpacing * c - (2-Math.abs(r-2)) * this.horizontalSpacing / 2;
-			let axisY = this.top + this.verticalSpacing * r;
+			let axis = this.getFlowerAxisCoordinates(c, r);
 						
-			let angleNow = Math.atan2(y2 - axisY, x2-axisX);
+			let angleNow = Math.atan2(y2 - axis.y, x2 - axis.x);
 						
 			this.deltaAngle = (angleNow - this.angleDown) * 180 / Math.PI;			
 					
 			return;
 		}
 		
-		
-		
+				
 		let touchedFlowerMove  = this.getClickedFlower(x2, y2, flowerRadius);
 		if (touchedFlowerMove){
 			if (!this.touchedFlowers.some((element)=>element.index == touchedFlowerMove.index)){
@@ -141,10 +143,9 @@ class Game{
 				let c = this.indexToCol[this.chosenFlowerToRotateAround];
 				let r = this.indexToRow[this.chosenFlowerToRotateAround];
 				
-				let axisX = this.left + this.horizontalSpacing * c - (2-Math.abs(r-2)) * this.horizontalSpacing / 2;
-				let axisY = this.top + this.verticalSpacing * r;
+				let axis = this.getFlowerAxisCoordinates(c,r);				
 								
-				this.angleDown = Math.atan2(y2 - axisY, x2 - axisX);
+				this.angleDown = Math.atan2(y2 - axis.y, x2 - axis.x);
 				//this.angleDownReal = Math.atan2(this.mdy - axisY, this.mdx - axisX);  
 				
 				this.audio.rotate.play();				
@@ -208,8 +209,8 @@ class Game{
 			}
 			let offsetAngle = 60 * animationTimeElapsed / this.animationTime * (this.directionIsLeft? -1:1);
 			
-			this.drawGridSkippingRing(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, this.clickedFlower.index, 1.0);
-			this.drawRing(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, this.clickedFlower.column, this.clickedFlower.row, this.clickedFlower.index, offsetAngle);
+			this.drawGridSkippingRing(ctx, this.clickedFlower.index, 1.0);
+			this.drawRing(ctx, this.clickedFlower.column, this.clickedFlower.row, this.clickedFlower.index, offsetAngle);
 			
 			if (animationTimeElapsed >= this.animationTime){
 				if (this.directionIsLeft)
@@ -222,12 +223,12 @@ class Game{
 				this.checkForWin();
 			}
 		} else if (this.state == State.Dragging){
-			this.drawGridSkippingRing(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, this.clickedFlower.index, 1.0);
-			this.drawRing(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, this.clickedFlower.column, this.clickedFlower.row, this.clickedFlower.index, this.deltaAngle);
+			this.drawGridSkippingRing(ctx, this.clickedFlower.index, 1.0);
+			this.drawRing(ctx, this.clickedFlower.column, this.clickedFlower.row, this.clickedFlower.index, this.deltaAngle);
 		}else{
-			this.drawGrid(ctx, this.left, this.top, this.horizontalSpacing, this.verticalSpacing, 1.0, this.arrangement);		
+			this.drawGridFull(ctx);
 		}
-		this.drawGrid(ctx, 455, 64, 29, 23, 0.5, this.goal);//minimap
+		this.drawMinimap(ctx);
 	}
 	
 	isRotateable(i){
@@ -239,22 +240,34 @@ class Game{
 	}
 	
 	
-	drawGrid(ctx, x, y, dx, dy, scale, data){
+	drawMinimap(ctx){
 		var i = 0;
 		for (let r = 0; r < 5; ++r){
 			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
-				this.drawSprite(ctx, x + dx * c - (2-Math.abs(r-2)) * dx / 2, y + dy * r, data[i], scale);
+				this.drawSprite(ctx, this.minimapLoc.x + this.minimapLoc.flowerSpacing * c - (2-Math.abs(r-2)) * this.minimapLoc.flowerSpacing / 2, this.minimapLoc.y + this.minimapLoc.flowerSpacing * sin(60) * r, this.goal[i], 0.5);
 				++i;
 			}			
 		}
-	}	
+	}
 	
-	drawGridSkippingRing(ctx, x, y, dx, dy, skipIndex, scale){
+	drawGridFull(ctx){
+		var i = 0;
+		for (let r = 0; r < 5; ++r){
+			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
+				let axis = this.getFlowerAxisCoordinates(c,r);
+				this.drawSprite(ctx, axis.x, axis.y, this.arrangement[i], 1.0);
+				++i;
+			}			
+		}
+	}
+	
+	drawGridSkippingRing(ctx, skipIndex, scale){
 		var i = 0;
 		for (let r = 0; r < 5; ++r){
 			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
 				if (!this.isNeighbour(skipIndex, i)){
-					this.drawSprite(ctx, x + dx * c - (2-Math.abs(r-2)) * dx / 2, y + dy * r, this.arrangement[i], scale);
+					let axis = this.getFlowerAxisCoordinates(c,r);
+					this.drawSprite(ctx, axis.x, axis.y, this.arrangement[i], scale);
 				}
 				++i;
 			}
@@ -262,15 +275,14 @@ class Game{
 		
 	}
 	
-	drawRing(ctx, x, y, dx, dy, c, r, index, offsetAngle){
+	drawRing(ctx, c, r, index, offsetAngle){
 		let angle = 240;
 				
-		let cx = x + dx * c - (2-Math.abs(r-2)) * dx / 2;
-		let cy = y + dy * r;
+		let axis = this.getFlowerAxisCoordinates(c,r);		
 		
 		for (let i = 0; i < 6; ++i){
-			let ox = cx + dx           * cos(angle + offsetAngle);
-			let oy = cy + (dy/sin(60)) * sin(angle + offsetAngle);
+			let ox = axis.x + this.mapLoc.flowerSpacing * cos(angle + offsetAngle);
+			let oy = axis.y + this.mapLoc.flowerSpacing * sin(angle + offsetAngle);
 			
 			this.drawSprite(ctx, ox, oy, this.arrangement[this.flowersAround[index][i]], 1.0)
 			
@@ -286,10 +298,9 @@ class Game{
 		var i = 0;
 		for (let r = 0; r < 5; ++r){
 			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
-				let x1 = this.left + this.horizontalSpacing * c - (2-Math.abs(r-2)) * this.horizontalSpacing / 2;
-				let y1 = this.top + this.verticalSpacing * r;
+				let axis  = this.getFlowerAxisCoordinates(c,r);				
 				
-				let distanceSquared = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)
+				let distanceSquared = (x2 - axis.x) * (x2 - axis.x) + (y2 - axis.y) * (y2 - axis.y);
 				
 				if (distanceSquared < radius * radius){
 					return {index: i, column: c, row: r};
