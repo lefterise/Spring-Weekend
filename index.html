@@ -64,7 +64,7 @@ class Game{
 			
 		this.clickedFlowerIndex = this.getClickedFlower(x, y, flowerRadius);
 		
-		if (this.clickedFlowerIndex && this.isRotateable(this.clickedFlowerIndex)){
+		if (this.clickedFlowerIndex != null && this.isRotateable(this.clickedFlowerIndex)){
 			this.state = State.Animating;
 			this.directionIsLeft = button == 0;
 			this.animationStartTime = -1;
@@ -80,7 +80,7 @@ class Game{
 		this.mdy= y;
 		this.touchedFlowers = [];
 		let touchedFlowerStart = this.getClickedFlower(this.mdx, this.mdy, flowerRadius);
-		if (touchedFlowerStart){
+		if (touchedFlowerStart != null){
 			this.touchedFlowers.push(touchedFlowerStart);
 		}
 	}
@@ -110,7 +110,7 @@ class Game{
 		
 				
 		let touchedFlowerMove  = this.getClickedFlower(x2, y2, flowerRadius);
-		if (touchedFlowerMove){
+		if (touchedFlowerMove != null){
 			if (!this.touchedFlowers.some((element)=>element == touchedFlowerMove)){
 				this.touchedFlowers.push(touchedFlowerMove);
 			}
@@ -387,7 +387,7 @@ function start(){
         e.preventDefault();
     }, false);
 	
-	
+	/*
 	canvas.addEventListener('mousedown', function(evt){
 		var rect = canvas.getBoundingClientRect();
 		x = evt.clientX - rect.left;
@@ -409,14 +409,14 @@ function start(){
 		y = evt.clientY - rect.top;
 		game.touchend(x, y);		
 	});
+	*/
 	
-	/*
 	canvas.addEventListener('mousedown', function(evt){
 		var rect = canvas.getBoundingClientRect();
 		x = evt.clientX - rect.left;
 		y = evt.clientY - rect.top;
 		game.mousedown(x, y, evt.button);		
-	});*/
+	});
 	
 	canvas.addEventListener('contextmenu', function(ev) {
 		ev.preventDefault();    
