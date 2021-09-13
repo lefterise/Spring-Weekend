@@ -62,9 +62,9 @@ class Game{
 		if (this.state != State.Clickable)
 			return;
 			
-		this.clickedFlower = this.getClickedFlower(x, y, flowerRadius);
+		this.clickedFlowerIndex = this.getClickedFlower(x, y, flowerRadius);
 		
-		if (this.clickedFlower && this.isRotateable(this.clickedFlower.index)){
+		if (this.clickedFlowerIndex && this.isRotateable(this.clickedFlowerIndex)){
 			this.state = State.Animating;
 			this.directionIsLeft = button == 0;
 			this.animationStartTime = -1;
@@ -111,7 +111,7 @@ class Game{
 				
 		let touchedFlowerMove  = this.getClickedFlower(x2, y2, flowerRadius);
 		if (touchedFlowerMove){
-			if (!this.touchedFlowers.some((element)=>element.index == touchedFlowerMove.index)){
+			if (!this.touchedFlowers.some((element)=>element == touchedFlowerMove)){
 				this.touchedFlowers.push(touchedFlowerMove);
 			}
 		}
@@ -121,7 +121,7 @@ class Game{
 			let candidateCoreFlowers = [4,5,8,9,10,13,14];
 			
 			for (let touchedFlower of this.touchedFlowers){
-				candidateCoreFlowers = candidateCoreFlowers.filter( (candidate) => this.isNeighbour(candidate, touchedFlower.index));
+				candidateCoreFlowers = candidateCoreFlowers.filter( (candidate) => this.isNeighbour(candidate, touchedFlower));
 				if (candidateCoreFlowers.length <= 1) 
 					break;
 			}
@@ -131,14 +131,11 @@ class Game{
 			}
 
 			
-			if (candidateCoreFlowers.length == 1){
-				let match = candidateCoreFlowers[0];
-		
-				this.clickedFlower =  {index: match, column: this.indexToCol[match], row: this.indexToRow[match]};
+			if (candidateCoreFlowers.length == 1){			
 				this.state = State.Dragging;
 				this.deltaAngle = 0;				
 				
-				this.chosenFlowerToRotateAround = match;
+				this.chosenFlowerToRotateAround = candidateCoreFlowers[0];
 				
 				let c = this.indexToCol[this.chosenFlowerToRotateAround];
 				let r = this.indexToRow[this.chosenFlowerToRotateAround];
@@ -209,22 +206,22 @@ class Game{
 			}
 			let offsetAngle = 60 * animationTimeElapsed / this.animationTime * (this.directionIsLeft? -1:1);
 			
-			this.drawGridSkippingRing(ctx, this.clickedFlower.index, 1.0);
-			this.drawRing(ctx, this.clickedFlower.column, this.clickedFlower.row, this.clickedFlower.index, offsetAngle);
+			this.drawGridSkippingRing(ctx, this.clickedFlowerIndex);
+			this.drawRing(ctx, this.clickedFlowerIndex, offsetAngle);
 			
 			if (animationTimeElapsed >= this.animationTime){
 				if (this.directionIsLeft)
-					this.rotateLeft(this.clickedFlower.index);
+					this.rotateLeft(this.clickedFlowerIndex);
 				else
-					this.rotateRight(this.clickedFlower.index);
+					this.rotateRight(this.clickedFlowerIndex);
 					
 				this.state = State.Clickable;
 				
 				this.checkForWin();
 			}
 		} else if (this.state == State.Dragging){
-			this.drawGridSkippingRing(ctx, this.clickedFlower.index, 1.0);
-			this.drawRing(ctx, this.clickedFlower.column, this.clickedFlower.row, this.clickedFlower.index, this.deltaAngle);
+			this.drawGridSkippingRing(ctx, this.chosenFlowerToRotateAround);
+			this.drawRing(ctx, this.chosenFlowerToRotateAround, this.deltaAngle);
 		}else{
 			this.drawGridFull(ctx);
 		}
@@ -238,7 +235,6 @@ class Game{
 	isNeighbour(i,j){
 		return this.isRotateable(i) && this.flowersAround[i].indexOf(j) != -1;
 	}
-	
 	
 	drawMinimap(ctx){
 		var i = 0;
@@ -261,13 +257,13 @@ class Game{
 		}
 	}
 	
-	drawGridSkippingRing(ctx, skipIndex, scale){
+	drawGridSkippingRing(ctx, skipIndex){
 		var i = 0;
 		for (let r = 0; r < 5; ++r){
 			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
 				if (!this.isNeighbour(skipIndex, i)){
 					let axis = this.getFlowerAxisCoordinates(c,r);
-					this.drawSprite(ctx, axis.x, axis.y, this.arrangement[i], scale);
+					this.drawSprite(ctx, axis.x, axis.y, this.arrangement[i], 1.0);
 				}
 				++i;
 			}
@@ -275,9 +271,11 @@ class Game{
 		
 	}
 	
-	drawRing(ctx, c, r, index, offsetAngle){
+	drawRing(ctx, index, offsetAngle){
 		let angle = 240;
-				
+		
+		let c = this.indexToCol[index];
+		let r = this.indexToRow[index];
 		let axis = this.getFlowerAxisCoordinates(c,r);		
 		
 		for (let i = 0; i < 6; ++i){
@@ -303,7 +301,7 @@ class Game{
 				let distanceSquared = (x2 - axis.x) * (x2 - axis.x) + (y2 - axis.y) * (y2 - axis.y);
 				
 				if (distanceSquared < radius * radius){
-					return {index: i, column: c, row: r};
+					return i;
 				}
 				++i;
 			}
