@@ -103,7 +103,7 @@ class Game{
 						
 			let angleNow = Math.atan2(y2 - axis.y, x2 - axis.x);
 						
-			this.deltaAngle = (angleNow - this.angleDown) * 180 / Math.PI;			
+			this.deltaAngle = (angleNow - this.angleDownReal) * 180 / Math.PI;			
 					
 			return;
 		}
@@ -132,8 +132,9 @@ class Game{
 
 			
 			if (candidateCoreFlowers.length == 1){			
-				this.state = State.Dragging;
-				this.deltaAngle = 0;				
+				this.state = State.DragCatchUpAnimation;
+				this.animationStartTime = -1;
+				
 				
 				this.chosenFlowerToRotateAround = candidateCoreFlowers[0];
 				
@@ -143,7 +144,8 @@ class Game{
 				let axis = this.getFlowerAxisCoordinates(c,r);				
 								
 				this.angleDown = Math.atan2(y2 - axis.y, x2 - axis.x);
-				//this.angleDownReal = Math.atan2(this.mdy - axisY, this.mdx - axisX);  
+				this.angleDownReal = Math.atan2(this.mdy - axis.y, this.mdx - axis.x);
+				this.deltaAngle = (this.angleDown - this.angleDownReal) * 180 / Math.PI;
 				
 				this.audio.rotate.play();				
 			}
@@ -222,6 +224,21 @@ class Game{
 		} else if (this.state == State.Dragging){
 			this.drawGridSkippingRing(ctx, this.chosenFlowerToRotateAround);
 			this.drawRing(ctx, this.chosenFlowerToRotateAround, this.deltaAngle);
+		} else if (this.state == State.DragCatchUpAnimation){
+			if (this.animationStartTime == -1){
+				this.animationStartTime = time;
+			}
+			let elapsedMs = time - this.animationStartTime;
+			
+			this.drawGridSkippingRing(ctx, this.chosenFlowerToRotateAround);
+			let percent = elapsedMs / 100;
+			let angle = ((this.angleDown - this.angleDownReal) * percent) * 180 / Math.PI;	
+			
+			this.drawRing(ctx, this.chosenFlowerToRotateAround, angle);
+			
+			if (elapsedMs >= 100){
+				this.state = State.Dragging;
+			}
 		}else{
 			this.drawGridFull(ctx);
 		}
