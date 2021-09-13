@@ -4,7 +4,8 @@
 const State = {
 	Clickable: 0,
 	Animating: 1,
-	Dragging:  2
+	Dragging:  2,
+	DragCatchUpAnimation: 3
 }
 
 function sin(degrees){
@@ -15,6 +16,8 @@ function cos(degrees){
 	return Math.cos(2 * Math.PI * degrees / 360);
 }
 
+const flowerRadius = 24;
+
 class Game{
 	constructor(sprites, audio){
 		this.sprites = sprites;
@@ -24,14 +27,14 @@ class Game{
 		this.horizontalSpacing = 55;
 		this.verticalSpacing = 48;
 		
-		this.neighbours = [];
-		this.neighbours[ 4] = [ 0, 1, 5, 9, 8, 3];
-		this.neighbours[ 5] = [ 1, 2, 6,10, 9, 4];
-		this.neighbours[ 8] = [ 3, 4, 9,13,12, 7];
-		this.neighbours[ 9] = [ 4, 5,10,14,13, 8];
-		this.neighbours[10] = [ 5, 6,11,15,14, 9];
-		this.neighbours[13] = [ 8, 9,14,17,16,12];
-		this.neighbours[14] = [ 9,10,15,18,17,13];
+		this.flowersAround = [];
+		this.flowersAround[ 4] = [ 0, 1, 5, 9, 8, 3];
+		this.flowersAround[ 5] = [ 1, 2, 6,10, 9, 4];
+		this.flowersAround[ 8] = [ 3, 4, 9,13,12, 7];
+		this.flowersAround[ 9] = [ 4, 5,10,14,13, 8];
+		this.flowersAround[10] = [ 5, 6,11,15,14, 9];
+		this.flowersAround[13] = [ 8, 9,14,17,16,12];
+		this.flowersAround[14] = [ 9,10,15,18,17,13];
 		
 		this.indexToCol = [0,1,2,0,1,2,3,0,1,2,3,4,0,1,2,3,0,1,2];
 		this.indexToRow = [0,0,0,1,1,1,1,2,2,2,2,2,3,3,3,3,4,4,4];
@@ -61,7 +64,7 @@ class Game{
 		if (this.state != State.Clickable)
 			return;
 			
-		this.clickedFlower = this.getClickedFlower(x, y, 24);
+		this.clickedFlower = this.getClickedFlower(x, y, flowerRadius);
 		
 		if (this.clickedFlower && this.isRotateable(this.clickedFlower.index)){
 			this.state = State.Animating;
@@ -77,15 +80,18 @@ class Game{
 	touchstart(x, y){
 		this.mdx= x;
 		this.mdy= y;
+		this.touchedFlowers = [];
+		let touchedFlowerStart = this.getClickedFlower(this.mdx, this.mdy, flowerRadius);
+		if (touchedFlowerStart){
+			this.touchedFlowers.push(touchedFlowerStart);
+		}
 	}
 	
 	touchmove(x2, y2){
 		if (this.state == State.Animating)
-		return;
+			return;
 		
-		if (this.chosenFlowerToRotateAround != -1){
-			let touchedFlowerStart = this.getClickedFlower(this.mdx, this.mdy, 24);					
-			
+		if (this.chosenFlowerToRotateAround != -1){						
 			let c = this.indexToCol[this.chosenFlowerToRotateAround];
 			let r = this.indexToRow[this.chosenFlowerToRotateAround];
 			
@@ -93,57 +99,55 @@ class Game{
 			let axisY = this.top + this.verticalSpacing * r;
 						
 			let angleNow = Math.atan2(y2 - axisY, x2-axisX);
-			
-			
+						
 			this.deltaAngle = (angleNow - this.angleDown) * 180 / Math.PI;			
-			
-		
+					
 			return;
 		}
 		
 		
-		let touchedFlowerStart = this.getClickedFlower(this.mdx, this.mdy, 24);
-		let touchedFlowerMove  = this.getClickedFlower(x2, y2, 24);
-			
-		if (touchedFlowerStart && touchedFlowerMove && touchedFlowerStart.index != touchedFlowerMove.index){
-			let matches = [];
-			
-			for (let coreFlower of [4,5,8,9,10,13,14]){
-				let a = this.neighbours[coreFlower].indexOf(touchedFlowerStart.index);
-				let b = this.neighbours[coreFlower].indexOf(touchedFlowerMove.index);
-				
-				if (a != -1 && b != -1){
-					matches.push({coreFlower: coreFlower, a: a, b:b});
-				}
-			}
-						
-			if (matches.length == 1 && this.chosenFlowerToRotateAround == -1){
-				let match = matches[0];
 		
-				this.clickedFlower =  {index: match.coreFlower, column: this.indexToCol[match.coreFlower], row: this.indexToRow[match.coreFlower]};
+		let touchedFlowerMove  = this.getClickedFlower(x2, y2, flowerRadius);
+		if (touchedFlowerMove){
+			if (!this.touchedFlowers.some((element)=>element.index == touchedFlowerMove.index)){
+				this.touchedFlowers.push(touchedFlowerMove);
+			}
+		}
+			
+		if (this.touchedFlowers.length >= 1){
+			
+			let candidateCoreFlowers = [4,5,8,9,10,13,14];
+			
+			for (let touchedFlower of this.touchedFlowers){
+				candidateCoreFlowers = candidateCoreFlowers.filter( (candidate) => this.isNeighbour(candidate, touchedFlower.index));
+				if (candidateCoreFlowers.length <= 1) 
+					break;
+			}
+			
+			if (candidateCoreFlowers.length == 0){
+				this.touchedFlowers.pop();
+			}
+
+			
+			if (candidateCoreFlowers.length == 1){
+				let match = candidateCoreFlowers[0];
+		
+				this.clickedFlower =  {index: match, column: this.indexToCol[match], row: this.indexToRow[match]};
 				this.state = State.Dragging;
-				this.deltaAngle = 0;
-				this.directionIsLeft = (match.a > match.b) ^ (match.a == 5 && match.b == 0) ^ (match.a == 0 && match.b == 5); 
-				this.animationStartTime = -1;
+				this.deltaAngle = 0;				
 				
-				this.chosenFlowerToRotateAround = match.coreFlower;
+				this.chosenFlowerToRotateAround = match;
 				
 				let c = this.indexToCol[this.chosenFlowerToRotateAround];
 				let r = this.indexToRow[this.chosenFlowerToRotateAround];
 				
 				let axisX = this.left + this.horizontalSpacing * c - (2-Math.abs(r-2)) * this.horizontalSpacing / 2;
 				let axisY = this.top + this.verticalSpacing * r;
-				
-				
-				//i somehow need to quickly transition betweeen this.angleDown and this.angleDownReal
-				
+								
 				this.angleDown = Math.atan2(y2 - axisY, x2 - axisX);
-				this.angleDownReal = Math.atan2(this.mdy - axisY, this.mdx - axisX);  
+				//this.angleDownReal = Math.atan2(this.mdy - axisY, this.mdx - axisX);  
 				
-				this.audio.rotate.play();
-				
-			}else{
-				this.audio.noRotate.play();
+				this.audio.rotate.play();				
 			}
 		}
 	}
@@ -174,7 +178,7 @@ class Game{
 	}
 	
 	rotateLeft(i){
-		let positionsToRotate = this.neighbours[i];
+		let positionsToRotate = this.flowersAround[i];
 		let first = this.arrangement[positionsToRotate[0]];
 		for (let j = 0; j < 6; ++j){
 			this.arrangement[positionsToRotate[j]] = this.arrangement[positionsToRotate[j+1]];
@@ -183,7 +187,7 @@ class Game{
 	}
 	
 	rotateRight(i){
-		let positionsToRotate = this.neighbours[i];
+		let positionsToRotate = this.flowersAround[i];
 		let last = this.arrangement[positionsToRotate[5]];
 		for (let j = 5; j >= 0; --j){
 			this.arrangement[positionsToRotate[j]] = this.arrangement[positionsToRotate[j-1]];
@@ -227,11 +231,11 @@ class Game{
 	}
 	
 	isRotateable(i){
-		return this.neighbours[i] != null;
+		return this.flowersAround[i] != null;
 	}
 	
 	isNeighbour(i,j){
-		return this.isRotateable(i) && this.neighbours[i].indexOf(j) != -1;
+		return this.isRotateable(i) && this.flowersAround[i].indexOf(j) != -1;
 	}
 	
 	
@@ -268,7 +272,7 @@ class Game{
 			let ox = cx + dx           * cos(angle + offsetAngle);
 			let oy = cy + (dy/sin(60)) * sin(angle + offsetAngle);
 			
-			this.drawSprite(ctx, ox, oy, this.arrangement[this.neighbours[index][i]], 1.0)
+			this.drawSprite(ctx, ox, oy, this.arrangement[this.flowersAround[index][i]], 1.0)
 			
 			angle += 60;
 		}
@@ -375,7 +379,7 @@ function start(){
     }, false);
 	
 	
-	/*canvas.addEventListener('mousedown', function(evt){
+	canvas.addEventListener('mousedown', function(evt){
 		var rect = canvas.getBoundingClientRect();
 		x = evt.clientX - rect.left;
 		y = evt.clientY - rect.top;
@@ -395,15 +399,15 @@ function start(){
 		x = evt.clientX - rect.left;
 		y = evt.clientY - rect.top;
 		game.touchend(x, y);		
-	});*/
+	});
 	
-	
+	/*
 	canvas.addEventListener('mousedown', function(evt){
 		var rect = canvas.getBoundingClientRect();
 		x = evt.clientX - rect.left;
 		y = evt.clientY - rect.top;
 		game.mousedown(x, y, evt.button);		
-	});
+	});*/
 	
 	canvas.addEventListener('contextmenu', function(ev) {
 		ev.preventDefault();    
