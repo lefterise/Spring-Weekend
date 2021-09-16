@@ -1,5 +1,12 @@
 <html>
 <head>
+<style>
+html, body {
+  margin: 0;
+}
+</style>
+
+
 <script>
 const State = {
 	Clickable: 0,
@@ -19,11 +26,12 @@ function cos(degrees){
 const flowerRadius = 24;
 
 class Game{
-	constructor(sprites, audio){
+	constructor(sprites, audio, scale){
 		this.sprites = sprites;
 		this.audio = audio;
+		this.scale = scale;
 		this.mapLoc     = {x: 148, y: 95, flowerSpacing: 55};	
-		this.minimapLoc = {x: 455, y: 64, flowerSpacing: 29};
+		this.minimapLoc = {x: 444, y: 54, flowerSpacing: 27};
 				
 		this.flowersAround = [];
 		this.flowersAround[ 4] = [ 0, 1, 5, 9, 8, 3];
@@ -88,7 +96,7 @@ class Game{
 	getFlowerAxisCoordinates(c, r){
 		let axisX = this.mapLoc.x + this.mapLoc.flowerSpacing * c - (2-Math.abs(r-2)) * this.mapLoc.flowerSpacing / 2;
 		let axisY = this.mapLoc.y + this.mapLoc.flowerSpacing * sin(60) * r;
-		return {x: axisX, y: axisY};
+		return {x: axisX * this.scale, y: axisY * this.scale};
 	}
 	
 	touchmove(x2, y2){
@@ -194,7 +202,7 @@ class Game{
 	}
 		
 	draw(ctx, time){
-		ctx.drawImage(this.sprites[11], 0, 0); //background
+		ctx.drawImage(this.sprites[11], 0, 0, 628 * this.scale, 400 * this.scale); //background
 		if (this.state == State.Animating){
 			if (this.animationStartTime == -1){
 				this.animationStartTime = time;
@@ -240,7 +248,9 @@ class Game{
 		var i = 0;
 		for (let r = 0; r < 5; ++r){
 			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
-				this.drawSprite(ctx, this.minimapLoc.x + this.minimapLoc.flowerSpacing * c - (2-Math.abs(r-2)) * this.minimapLoc.flowerSpacing / 2, this.minimapLoc.y + this.minimapLoc.flowerSpacing * sin(60) * r, this.goal[i], 0.5);
+				let x = this.minimapLoc.x + this.minimapLoc.flowerSpacing * c - (2-Math.abs(r-2)) * this.minimapLoc.flowerSpacing / 2;
+				let y = this.minimapLoc.y + this.minimapLoc.flowerSpacing * sin(60) * r;
+				this.drawSprite(ctx, x * this.scale, y * this.scale, this.goal[i], this.scale * 0.5);
 				++i;
 			}			
 		}
@@ -251,7 +261,7 @@ class Game{
 		for (let r = 0; r < 5; ++r){
 			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
 				let axis = this.getFlowerAxisCoordinates(c,r);
-				this.drawSprite(ctx, axis.x, axis.y, this.arrangement[i], 1.0);
+				this.drawSprite(ctx, axis.x, axis.y, this.arrangement[i], this.scale);
 				++i;
 			}			
 		}
@@ -263,7 +273,7 @@ class Game{
 			for (let c = 0; c < 5 - Math.abs(r-2); ++c){
 				if (!this.isNeighbour(skipIndex, i)){
 					let axis = this.getFlowerAxisCoordinates(c,r);
-					this.drawSprite(ctx, axis.x, axis.y, this.arrangement[i], 1.0);
+					this.drawSprite(ctx, axis.x, axis.y, this.arrangement[i], this.scale);
 				}
 				++i;
 			}
@@ -279,17 +289,17 @@ class Game{
 		let axis = this.getFlowerAxisCoordinates(c,r);		
 		
 		for (let i = 0; i < 6; ++i){
-			let ox = axis.x + this.mapLoc.flowerSpacing * cos(angle + offsetAngle);
-			let oy = axis.y + this.mapLoc.flowerSpacing * sin(angle + offsetAngle);
+			let ox = axis.x + this.mapLoc.flowerSpacing * cos(angle + offsetAngle) * this.scale;
+			let oy = axis.y + this.mapLoc.flowerSpacing * sin(angle + offsetAngle) * this.scale;
 			
-			this.drawSprite(ctx, ox, oy, this.arrangement[this.flowersAround[index][i]], 1.0)
+			this.drawSprite(ctx, ox, oy, this.arrangement[this.flowersAround[index][i]], this.scale)
 			
 			angle += 60;
 		}
 	}
 	
 	drawSprite(ctx, x, y, id, scale){
-		ctx.drawImage(this.sprites[id], x - this.sprites[id].width / 2, y - this.sprites[id].height / 2, this.sprites[id].width * scale, this.sprites[id].height * scale);
+		ctx.drawImage(this.sprites[id], x - this.sprites[id].width * scale / 2, y - this.sprites[id].height * scale / 2, this.sprites[id].width * scale, this.sprites[id].height * scale);
 	}
 	
 	getClickedFlower(x2, y2, radius){
@@ -300,7 +310,7 @@ class Game{
 				
 				let distanceSquared = (x2 - axis.x) * (x2 - axis.x) + (y2 - axis.y) * (y2 - axis.y);
 				
-				if (distanceSquared < radius * radius){
+				if (distanceSquared < radius * radius * this.scale * this.scale){
 					return i;
 				}
 				++i;
@@ -350,9 +360,8 @@ function loadSprites(path, numSprites, onLoadCompletion, onLoadProgress){
 }
 
 function start(){	
-	var canvas = document.getElementById("MyCanvas");		
+	var canvas = document.getElementById("MyCanvas");
 	var ctx = canvas.getContext("2d");
-	
 	
     canvas.addEventListener('touchstart', function(e){
         var touchobj = e.changedTouches[0];
@@ -433,7 +442,21 @@ var audio = {
 	noRotate: new Audio('Waves/NoRotate.wav'),
 	win: new Audio('Waves/NextLevel.wav')
 };
-var game = new Game(sprites, audio);
+	
+function size(){
+	var canvas = document.getElementById("MyCanvas");
+	window.requestAnimationFrame((time)=>game.draw(ctx, time));
+	canvas.width = window.innerWidth - 4;
+	canvas.height = window.innerHeight - 4;
+	let scaleW = (window.innerWidth - 4) / 628;
+	let scaleH =  (window.innerHeight - 4) / 400;
+	game.scale=Math.min(scaleW, scaleH);
+	
+}	
+
+var game = new Game(sprites, audio, 1.0);
+window.addEventListener('load',()=>size(), false);
+window.addEventListener('resize',()=>size(), false);
 
 </script>
 </head>
