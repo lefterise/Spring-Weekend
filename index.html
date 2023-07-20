@@ -180,7 +180,7 @@ class Game{
 		
 		this.chosenFlowerToRotateAround = -1;
 		
-		this.checkForWin();
+		this.checkForWinOrLoss();
 	}
 	
 	rotateLeft(i){
@@ -227,7 +227,7 @@ class Game{
 					
 				this.state = State.Clickable;
 				
-				this.checkForWinOrLoss(time);
+				this.checkForWinOrLoss();
 			}
 		} else if (this.state == State.Dragging){
 			this.drawGridSkippingRing(ctx, this.chosenFlowerToRotateAround);
@@ -244,7 +244,12 @@ class Game{
 	processGameOverState(ctx, time){
 		ctx.drawImage(this.sprites[13], 85 * this.scale, 115 * this.scale, 228 * this.scale, 160 * this.scale);
 		
+		if (this.animationStartTime == -1){
+			this.animationStartTime = time;
+		}
+		
 		var animationTimeElapsed = time - this.animationStartTime;		
+		
 		if (animationTimeElapsed > 2500){
 			this.loadLevel(0);
 			this.score = 0;			
@@ -355,7 +360,7 @@ class Game{
 		return null;
 	}
 	
-	checkForWinOrLoss(time){
+	checkForWinOrLoss(){
 		if (this.arrangement.every((value, index) => value === this.goal[index])){
 			this.audio.win.play();			
 			this.score += this.moves * 10;
@@ -365,7 +370,7 @@ class Game{
 		if (this.moves == 0){			
 			this.state = State.GameOvering;
 			this.audio.loss.play();
-			this.animationStartTime = time;
+			this.animationStartTime = -1;
 		}
 	}
 	
@@ -494,6 +499,7 @@ var audio = {
 	
 function size(){
 	var canvas = document.getElementById("MyCanvas");
+	var ctx = canvas.getContext("2d");
 	window.requestAnimationFrame((time)=>game.draw(ctx, time));	
 	let scaleW = (window.innerWidth - 4) / 628;
 	let scaleH =  (window.innerHeight - 4) / 400;
