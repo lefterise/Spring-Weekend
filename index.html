@@ -12,7 +12,8 @@ const State = {
 	Clickable: 0,
 	Animating: 1,
 	Dragging:  2,
-	DragCatchUpAnimation: 3
+	DragCatchUpAnimation: 3,
+	GameOvering: 4
 }
 
 function sin(degrees){
@@ -46,24 +47,23 @@ class Game{
 		this.indexToRow = [0,0,0,1,1,1,1,2,2,2,2,2,3,3,3,3,4,4,4];
 		
 		this.levels = [
-		{arrangement: [2,2,2,2,2,2,2,2,2,2,2,2,2,2,6,2,2,2,2],  goal: [2,2,2,2,2,2,2,2,2,6,2,2,2,2,2,2,2,2,2]},
-		{arrangement: [5,5,5,0,5,0,5,5,5,5,5,5,5,5,5,5,5,5,5],  goal: [5,5,5,5,5,5,5,5,0,5,0,5,5,5,5,5,5,5,5]},
-		{arrangement: [5,4,5,5,0,4,5,5,5,5,5,5,5,5,5,5,5,5,5],  goal: [5,5,5,5,4,4,5,5,5,0,5,5,5,5,5,5,5,5,5]},			
-		{arrangement: [8,6,8,8,8,6,6,8,8,6,8,8,8,8,8,8,8,8,8],  goal: [8,8,8,8,6,6,8,8,6,8,6,8,8,8,8,8,8,8,8]},		
-		{arrangement: [3,3,7,7,3,3,3,3,3,7,3,7,3,3,3,3,3,7,3],  goal: [3,7,3,3,3,3,3,7,3,7,3,7,3,3,3,3,3,7,3]},
-		{arrangement: [2,2,2,9,2,9,9,2,2,9,2,2,2,9,9,2,2,2,2],  goal: [2,2,2,2,9,9,2,2,9,2,9,2,2,9,9,2,2,2,2]},		
-		{arrangement: [5,5,4,4,4,10,5,5,5,4,5,5,5,5,5,4,4,5,5], goal: [5,4,5,5,5,5,5,4,4,10,4,4,5,5,5,5,5,4,5]},
-		{arrangement: [4,8,8,6,6,5,6,8,8,5,8,4,4,6,3,4,8,8,8],  goal: [8,4,8,8,6,6,8,4,5,3,5,4,8,6,6,8,8,4,8]}];
+		{arrangement: [2,2,2,2,2,2,2,2,2,2,2,2,2,2,6,2,2,2,2],  goal: [2,2,2,2,2,2,2,2,2,6,2,2,2,2,2,2,2,2,2], moves: 20},
+		{arrangement: [1,1,1,5,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1],  goal: [1,1,1,1,1,1,1,1,5,1,5,1,1,1,1,1,1,1,1], moves: 20},
+		{arrangement: [5,4,5,5,0,4,5,5,5,5,5,5,5,5,5,5,5,5,5],  goal: [5,5,5,5,4,4,5,5,5,0,5,5,5,5,5,5,5,5,5], moves: 20},			
+		{arrangement: [8,6,8,8,8,6,6,8,8,6,8,8,8,8,8,8,8,8,8],  goal: [8,8,8,8,6,6,8,8,6,8,6,8,8,8,8,8,8,8,8], moves: 20},		
+		{arrangement: [3,3,7,7,3,3,3,3,3,7,3,7,3,3,3,3,3,7,3],  goal: [3,7,3,3,3,3,3,7,3,7,3,7,3,3,3,3,3,7,3], moves: 20},
+		{arrangement: [2,2,2,9,2,9,9,2,2,9,2,2,2,9,9,2,2,2,2],  goal: [2,2,2,2,9,9,2,2,9,2,9,2,2,9,9,2,2,2,2], moves: 20},		
+		{arrangement: [5,5,4,4,4,10,5,5,5,4,5,5,5,5,5,4,4,5,5], goal: [5,4,5,5,5,5,5,4,4,10,4,4,5,5,5,5,5,4,5], moves: 20},
+		{arrangement: [4,8,8,6,6,5,6,8,8,5,8,4,4,6,3,4,8,8,8],  goal: [8,4,8,8,6,6,8,4,5,3,5,4,8,6,6,8,8,4,8], moves: 20}];
 		
-		this.levelId     = 0;
-		this.arrangement = this.levels[this.levelId].arrangement;
-		this.goal        = this.levels[this.levelId].goal;
-		
+		this.loadLevel(0);		
+		this.score       = 0;
 		
 		this.state = State.Clickable;
 		this.animationTime = 200;
 		
 		this.chosenFlowerToRotateAround = -1;
+		
 	}
 	
 	mousedown(x, y, button){
@@ -190,6 +190,7 @@ class Game{
 			this.arrangement[positionsToRotate[j]] = this.arrangement[positionsToRotate[j+1]];
 		}
 		this.arrangement[positionsToRotate[5]] = first;
+		--this.moves;
 	}
 	
 	rotateRight(i){
@@ -199,6 +200,7 @@ class Game{
 			this.arrangement[positionsToRotate[j]] = this.arrangement[positionsToRotate[j-1]];
 		}
 		this.arrangement[positionsToRotate[0]] = last;
+		--this.moves;
 	}
 		
 	draw(ctx, time){
@@ -225,15 +227,49 @@ class Game{
 					
 				this.state = State.Clickable;
 				
-				this.checkForWin();
+				this.checkForWinOrLoss(time);
 			}
 		} else if (this.state == State.Dragging){
 			this.drawGridSkippingRing(ctx, this.chosenFlowerToRotateAround);
 			this.drawRing(ctx, this.chosenFlowerToRotateAround, this.deltaAngle);
+		} else if (this.state == State.GameOvering){
+			this.processGameOverState(ctx, time);			
 		}else{
 			this.drawGridFull(ctx);
 		}
 		this.drawMinimap(ctx);
+		this.drawStatus(ctx);
+	}
+	
+	processGameOverState(ctx, time){
+		ctx.drawImage(this.sprites[13], 85 * this.scale, 115 * this.scale, 228 * this.scale, 160 * this.scale);
+		
+		var animationTimeElapsed = time - this.animationStartTime;		
+		if (animationTimeElapsed > 2500){
+			this.loadLevel(0);
+			this.score = 0;			
+			this.state = State.Clickable;
+		}
+	}
+	
+	drawStatus(ctx){	  
+	  this.drawText(ctx, this.moves, 454, 268, 28);
+	  this.drawText(ctx, this.score, 550, 370, 26);
+	  this.drawText(ctx, this.levelId + 1, 512, 172, 24);
+	}	
+	
+	drawText(ctx, text, x, y, size){
+	  ctx.font = (size * this.scale) + "px Comic Sans MS";
+	  ctx.textAlign = "center";
+
+	  ctx.shadowColor="black";
+      ctx.shadowBlur=16;
+	  ctx.lineWidth=7;
+	  ctx.strokeText(text, x * this.scale, y * this.scale);
+	  
+	  ctx.shadowBlur=0;
+	  ctx.fillStyle = "White";	  
+	  ctx.fillText(text, x * this.scale, y * this.scale);
 	}
 	
 	isRotateable(i){
@@ -319,14 +355,26 @@ class Game{
 		return null;
 	}
 	
-	checkForWin(){
+	checkForWinOrLoss(time){
 		if (this.arrangement.every((value, index) => value === this.goal[index])){
-			this.audio.win.play();
-			
-			++this.levelId;
-			this.arrangement = this.levels[this.levelId].arrangement;
-			this.goal        = this.levels[this.levelId].goal;
+			this.audio.win.play();			
+			this.score += this.moves * 10;
+			this.loadLevel(this.levelId + 1);			
 		}
+		
+		if (this.moves == 0){			
+			this.state = State.GameOvering;
+			this.audio.loss.play();
+			this.animationStartTime = time;
+		}
+	}
+	
+	loadLevel(id){
+		this.levelId = id;
+		let level = JSON.parse(JSON.stringify(this.levels[this.levelId]));
+		this.arrangement = level.arrangement;
+		this.goal        = level.goal;
+		this.moves       = level.moves;
 	}
 }
 
@@ -440,17 +488,18 @@ var sprites = loadSprites("Sprites\\", 14, start);
 var audio = {
 	rotate: new Audio('Waves/Rotate.wav'),
 	noRotate: new Audio('Waves/NoRotate.wav'),
-	win: new Audio('Waves/NextLevel.wav')
+	win: new Audio('Waves/NextLevel.wav'),
+	loss: new Audio('Waves/GameOver2.wav')
 };
 	
 function size(){
 	var canvas = document.getElementById("MyCanvas");
-	window.requestAnimationFrame((time)=>game.draw(ctx, time));
-	canvas.width = window.innerWidth - 4;
-	canvas.height = window.innerHeight - 4;
+	window.requestAnimationFrame((time)=>game.draw(ctx, time));	
 	let scaleW = (window.innerWidth - 4) / 628;
 	let scaleH =  (window.innerHeight - 4) / 400;
 	game.scale=Math.min(scaleW, scaleH);
+	canvas.width = 628 * game.scale;
+	canvas.height = 400 * game.scale;
 	
 }	
 
